@@ -1,0 +1,198 @@
+<?php
+// pending_deductions.php
+require_once 'config.php';
+
+// Musi być zalogowany
+if (!isset($_SESSION['user_id'], $_SESSION['rola'])) {
+    header('Location: login.php');
+    exit;
+}
+
+$rola      = $_SESSION['rola'];
+$session_id = (int)$_SESSION['user_id'];
+
+// filtr okresu
+$allowed_periods = ['all', '7', '30', '90'];
+$period = $_GET['period'] ?? 'all';
+if (!in_array($period, $allowed_periods, true)) {
+    $period = 'all';
+}
+
+// Ustalenie, jakie dziecko oglądamy
+$child_id = 0;
+
+if ($rola === 'rodzic') {
+    // rodzic może podejrzeć swoje dziecko (child_id z GET)
+    $child_id = isset($_GET['child_id']) ? (int)$_GET['child_id'] : 0;
+    if ($child_id <= 0) {
+        die('Nieprawidłowy identyfikator dziecka.');
+    }
+
+    // Sprawdź, czy dziecko należy do tego rodzica
+    $stmt = $mysqli->prepare('
+        SELECT imie, login, kieszonkowe_tygodniowe
+        FROM uzytkownicy
+        WHERE id = ? AND rodzic_id = ? AND rola = "dziecko" AND aktywny = 1
+        LIMIT 1
+    ');
+    if (!$stmt) {
+        die('Błąd przygotowania zapytania.');
+    }
+    $stmt->bind_param('ii', $child_id, $session_id);
+    $stmt->execute();
+    $stmt->bind_result($imie_dziecka, $login_dziecka, $kieszonkowe_tyg);
+    if (!$stmt->fetch()) {
+        $stmt->close();
+        die('Nie znaleziono dziecka lub brak uprawnień.');
+    }
+    $stmt->close();
+
+} elseif ($rola === 'dziecko') {
+    // dziecko zawsze ogląda TYLKO siebie, ignorujemy ewentualny child_id z GET
+    $child_id = $session_id;
+
+    $stmt = $mysqli->prepare('
+        SELECT imie, login, kieszonkowe_tygodniowe
+        FROM uzytkownicy
+        WHERE id = ? AND rola = "dziecko" AND aktywny = 1
+        LIMIT 1
+    ');
+    if (!$stmt) {
+        die('Błąd przygotowania zapytania.');
+    }
+    $stmt->bind_param('i', $child_id);
+    $stmt->execute();
+    $stmt->bind_result($imie_dziecka, $login_dziecka, $kieszonkowe_tyg);
+    if (!$stmt->fetch()) {
+        $stmt->close();
+        die('Nie znaleziono konta dziecka.');
+    }
+    $stmt->close();
+} else {
+    http_response_code(403);
+    die('Brak uprawnień.');
+}
+
+// Zbuduj warunek daty dla filtra
+$dateCondition = '';
+$params = [$child_id];
+$param_types = 'i';
+
+if ($period !== 'all') {
+    $days = (int)$period;
+    $from_date = date('Y-m-d', strtotime("-{$days} days"));
+    $dateCondition = ' AND p.data_zdarzenia >= ? ';
+    $params[] = $from_date;
+    $param_types .= 's';
+}
+
+// Pobierz nierozliczone potrącenia z uwzględnieniem filtra
+$potracenia = [];
+$suma = 0.0;
+
+$query = '
+    SELECT p.data_zdarzenia, t.nazwa, p.kwota, p.opis, p.utworzone_at
+    FROM potracenia p
+    JOIN typy_potracen t ON p.typ_id = t.id
+    WHERE p.dziecko_id = ? AND p.rozliczone = 0
+    ' . $dateCondition . '
+    ORDER BY p.data_zdarzenia DESC, p.id DESC
+';
+
+$stmt = $mysqli->prepare($query);
+if ($stmt) {
+    $stmt->bind_param($param_types, ...$params);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    while ($row = $result->fetch_assoc()) {
+        $potracenia[] = $row;
+        $suma += (float)$row['kwota'];
+    }
+    $stmt->close();
+}
+
+?>
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <title>Nierozliczone potrącenia</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="container">
+    <h1>Nierozliczone potrącenia dla:
+        <?php echo htmlspecialchars($imie_dziecka); ?>
+        (login: <?php echo htmlspecialchars($login_dziecka); ?>)
+    </h1>
+
+    <div class="actions">
+        <a href="index.php" class="button button-secondary">&larr; Powrót do panelu</a>
+    </div>
+
+    <p>Tygodniowe kieszonkowe:
+        <strong><?php echo number_format((float)$kieszonkowe_tyg, 2); ?> zł</strong>
+    </p>
+
+    <!-- Formularz filtrowania -->
+    <h3>Filtrowanie</h3>
+    <form method="get">
+        <?php if ($rola === 'rodzic'): ?>
+            <input type="hidden" name="child_id" value="<?php echo (int)$child_id; ?>">
+        <?php endif; ?>
+
+        <label for="period">Pokaż potrącenia z okresu:</label>
+        <select name="period" id="period">
+            <option value="all" <?php if ($period === 'all') echo 'selected'; ?>>Cały okres (wszystkie)</option>
+            <option value="7" <?php if ($period === '7') echo 'selected'; ?>>Ostatnie 7 dni</option>
+            <option value="30" <?php if ($period === '30') echo 'selected'; ?>>Ostatnie 30 dni</option>
+            <option value="90" <?php if ($period === '90') echo 'selected'; ?>>Ostatnie 90 dni</option>
+        </select>
+
+        <br><br>
+        <input type="submit" value="Filtruj">
+    </form>
+
+    <?php if ($period !== 'all'): ?>
+        <?php
+        $days = (int)$period;
+        $from_date = date('Y-m-d', strtotime("-{$days} days"));
+        ?>
+        <div class="alert-info">
+            Pokazuję potrącenia od <strong><?php echo htmlspecialchars($from_date); ?></strong> do dzisiaj.
+        </div>
+    <?php endif; ?>
+
+    <?php if (empty($potracenia)): ?>
+        <p>Brak nierozliczonych potrąceń w wybranym okresie 🎉</p>
+    <?php else: ?>
+
+        <p>Łączna suma nierozliczonych potrąceń w wybranym okresie:
+            <strong><?php echo number_format($suma, 2); ?> zł</strong>
+        </p>
+
+        <div class="table-wrapper">
+            <table>
+                <tr>
+                    <th>Data zdarzenia</th>
+                    <th>Typ</th>
+                    <th>Kwota</th>
+                    <th>Opis</th>
+                    <th>Dodano (data/czas)</th>
+                </tr>
+                <?php foreach ($potracenia as $p): ?>
+                    <tr>
+                        <td><?php echo htmlspecialchars($p['data_zdarzenia']); ?></td>
+                        <td><?php echo htmlspecialchars($p['nazwa']); ?></td>
+                        <td><?php echo number_format($p['kwota'], 2); ?> zł</td>
+                        <td><?php echo htmlspecialchars($p['opis'] ?? ''); ?></td>
+                        <td><?php echo htmlspecialchars($p['utworzone_at']); ?></td>
+                    </tr>
+                <?php endforeach; ?>
+            </table>
+        </div>
+    <?php endif; ?>
+
+</div>
+</body>
+</html>
