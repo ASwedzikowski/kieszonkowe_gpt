@@ -3,13 +3,19 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: localhost:3306
--- Generation Time: Lis 24, 2025 at 02:55 PM
--- Wersja serwera: 10.11.14-MariaDB-0+deb12u2-log
+-- Generation Time: Lis 24, 2025 at 11:07 PM
+-- Wersja serwera: 10.11.14-MariaDB-0+deb12u2
 -- Wersja PHP: 8.2.29
 
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 START TRANSACTION;
 SET time_zone = "+00:00";
+
+
+/*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
+/*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
+/*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
+/*!40101 SET NAMES utf8mb4 */;
 
 --
 -- Database: `kieszonkowe`
@@ -37,7 +43,22 @@ CREATE TABLE IF NOT EXISTS `potracenia` (
   KEY `fk_potracenia_dziecko` (`dziecko_id`),
   KEY `fk_potracenia_typ` (`typ_id`),
   KEY `fk_potracenia_utworzyl` (`utworzyl_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=11 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `potracenia`
+--
+
+INSERT INTO `potracenia` (`id`, `dziecko_id`, `typ_id`, `kwota`, `opis`, `data_zdarzenia`, `utworzone_at`, `utworzyl_id`, `rozliczone`, `rozliczenie_id`) VALUES
+(1, 2, 5, 5.00, '', '2025-11-15', '2025-11-24 23:02:11', 1, 0, NULL),
+(2, 2, 5, 5.00, '', '2025-11-19', '2025-11-24 23:03:10', 1, 0, NULL),
+(3, 3, 4, 5.00, '', '2025-11-23', '2025-11-24 23:03:52', 1, 0, NULL),
+(4, 2, 5, 5.00, '', '2025-11-23', '2025-11-24 23:05:34', 1, 0, NULL),
+(5, 2, 7, 50.00, 'Prezent na mikołajki w szkole', '2025-11-24', '2025-11-24 23:08:15', 1, 0, NULL),
+(6, 4, 1, 5.00, '', '2025-11-19', '2025-11-24 23:10:31', 1, 0, NULL),
+(8, 3, 7, 0.00, 'Start', '2025-10-26', '2025-11-24 23:51:24', 1, 0, NULL),
+(9, 4, 7, 0.00, 'Start', '2025-10-26', '2025-11-24 23:51:42', 1, 0, NULL),
+(10, 2, 7, 0.00, 'Start', '2025-10-26', '2025-11-24 23:52:06', 1, 0, NULL);
 
 -- --------------------------------------------------------
 
@@ -75,17 +96,20 @@ CREATE TABLE IF NOT EXISTS `typy_potracen` (
   `opis` varchar(255) DEFAULT NULL,
   `aktywny` tinyint(1) NOT NULL DEFAULT 1,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Dumping data for table `typy_potracen`
 --
 
 INSERT INTO `typy_potracen` (`id`, `nazwa`, `domyslna_kwota`, `opis`, `aktywny`) VALUES
-(1, 'Kuwety', 5.00, 'Ocena niedostateczna z dowolnego przedmiotu', 1),
-(2, 'Łazienka biała', 5.00, 'Nie wykonano umówionych obowiązków', 1),
-(3, 'Kłótnia z rodzeństwem', 2.00, 'Poważna kłótnia, brak przeprosin', 1),
-(4, 'Spóźnienie do szkoły', 1.50, 'Bez sensownego usprawiedliwienia', 1);
+(1, 'Kuwety', 5.00, 'Nie sprzątnięte kuwety', 1),
+(2, 'Łazienka biała', 5.00, 'Nie sprzątnięta biała łazienka', 1),
+(3, 'Zmywarka', 5.00, 'Zmywarka, nie zapakowana/rozpakowana', 1),
+(4, 'Blaty', 5.00, 'Brudne blaty w kuchni', 1),
+(5, 'Śmiecie', 5.00, 'Nie wyrzucone śmiecie, przepełnione kosze (nie domykają się klapy)', 1),
+(6, 'Zakupy', 5.00, 'Awaryjne drobne zakupy w razie potrzeby - nie zrobione pomimo próśb.', 1),
+(7, 'Inne', 1.00, 'Np. zakupy z kieszonkowego, zaliczka, etc.', 1);
 
 -- --------------------------------------------------------
 
@@ -144,3 +168,7 @@ ALTER TABLE `rozliczenia`
 ALTER TABLE `uzytkownicy`
   ADD CONSTRAINT `fk_uzytkownicy_rodzic` FOREIGN KEY (`rodzic_id`) REFERENCES `uzytkownicy` (`id`) ON DELETE SET NULL ON UPDATE CASCADE;
 COMMIT;
+
+/*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
+/*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
+/*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
