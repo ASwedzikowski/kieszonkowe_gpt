@@ -56,6 +56,7 @@ $rola    = $_SESSION['rola'] ?? '';
             <h2>Panel rodzica</h2>
 
             <p><a href="add_child.php">➕ Dodaj dziecko</a></p>
+            <!-- ten link może zostać jako „ogólny” (wtedy w add_deduction.php wybierasz dziecko z listy) -->
             <p><a href="add_deduction.php">➖ Dodaj potrącenie</a></p>
             <p><a href="make_settlement.php">✅ Rozlicz tydzień</a></p>
 
@@ -100,6 +101,7 @@ $rola    = $_SESSION['rola'] ?? '';
                             <th>Kieszonkowe tygodniowe</th>
                             <th>Suma nierozliczonych potrąceń</th>
                             <th>Ostatnie rozliczenie</th>
+                            <th>Akcje</th>
                           </tr>';
 
                     while ($row = $result->fetch_assoc()) {
@@ -167,6 +169,12 @@ $rola    = $_SESSION['rola'] ?? '';
                         } else {
                             echo '<small>Brak rozliczeń</small>';
                         }
+                        echo '</td>';
+
+                        // NOWA KOLUMNA: AKCJE – z dziecko_id w URL
+                        echo '<td>';
+                        echo '<a href="add_deduction.php?dziecko_id=' . $child_id . '">➖&nbsp;Odpisz</a>';
+                        // tutaj można dodać kolejne akcje, np. rozliczenie tylko tego dziecka
                         echo '</td>';
 
                         echo '</tr>';
@@ -519,21 +527,27 @@ $rola    = $_SESSION['rola'] ?? '';
                                 </div>
                                 <div class="child-balance <?php echo ($c['last_netto'] ?? 0) >= 0 ? 'child-balance--positive' : 'child-balance--negative'; ?>">
                                     <?php if ($c['last_netto'] !== null): ?>
-                                        <?php echo number_format($c['last_netto'], 2, ',', ' '); ?> zł
+                                        <?php echo number_format($c['last_netto'], 2, ',', ' '); ?>zł
                                     <?php else: ?>
-                                        0,00 zł
+                                        0,00zł
                                     <?php endif; ?>
                                 </div>
                             </div>
                             <div class="child-card__body">
                                 <div class="child-stats">
-                                    Tygodniowe: <?php echo number_format($c['weekly'], 2, ',', ' '); ?> zł ·
+                                    Tygodniowe:
+                                    <?php echo number_format($c['weekly'], 2, ',', ' '); ?>&nbsp;zł ·<br>
                                     Nierozliczone potrącenia:
-                                    <?php echo number_format($c['outstanding'], 2, ',', ' '); ?> zł
+                                    <a href="pending_deductions.php?child_id=<?php echo (int)$c['id']; ?>">
+                                        <span class="summary-value<?php echo ($c['outstanding'] > 0 ? ' summary-value--negative' : ''); ?>">
+                                            <?php echo number_format($c['outstanding'], 2, ',', ' '); ?>&nbsp;zł
+                                        </span>
+                                    </a>
                                 </div>
                             </div>
                             <div class="child-card__actions">
-                                <a href="add_event.php?dziecko_id=<?php echo (int)$c['id']; ?>" class="btn btn-secondary">+ Zdarzenie</a>
+                                <!-- add_event.php możesz mieć lub usunąć, ważny jest link do add_deduction.php -->
+                                <!-- <a href="add_event.php?dziecko_id=<?php echo (int)$c['id']; ?>" class="btn btn-secondary">+ Zdarzenie</a> -->
                                 <a href="add_deduction.php?dziecko_id=<?php echo (int)$c['id']; ?>" class="btn btn-secondary">− Potrącenie</a>
                                 <a href="make_settlement.php?dziecko_id=<?php echo (int)$c['id']; ?>" class="btn btn-primary">Rozlicz</a>
                             </div>

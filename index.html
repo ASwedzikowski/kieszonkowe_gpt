@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <title>Kieszonkowe – mobilne</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="mobile.css">
+</head>
+<body>
+  <div class="app">
+    <header class="app-header">
+      <div class="app-header__left">
+        <span class="app-logo">💰</span>
+        <span class="app-title">Kieszonkowe</span>
+      </div>
+      <button class="icon-button" aria-label="Menu">
+        ☰
+      </button>
+    </header>
+
+    <section class="period-bar">
+      <div class="period-main">Okres: 10–24.11.2025</div>
+      <div class="period-sub">2 pełne tygodnie</div>
+    </section>
+
+    <section class="summary-row">
+      <article class="summary-card">
+        <div class="summary-label">Do wypłaty dziś</div>
+        <div class="summary-value">150,00 zł</div>
+      </article>
+      <article class="summary-card">
+        <div class="summary-label">Nierozliczone potrącenia</div>
+        <div class="summary-value summary-value--negative">-10,00 zł</div>
+      </article>
+      <article class="summary-card">
+        <div class="summary-label">Suma dzieci</div>
+        <div class="summary-value">300,00 zł</div>
+      </article>
+    </section>
+
+    <main class="content">
+      <h2 class="section-title">Dzieci</h2>
+
+      <article class="child-card">
+        <div class="child-card__header">
+          <div>
+            <div class="child-name">Anna</div>
+            <div class="child-meta">Ostatnie rozliczenie: 24.11.2025</div>
+          </div>
+          <div class="child-balance child-balance--positive">
+            +95,00 zł
+          </div>
+        </div>
+        <div class="child-card__body">
+          <div class="child-stats">
+            4 zdarzenia w okresie · 1 potrącenie
+          </div>
+        </div>
+        <div class="child-card__actions">
+          <button class="btn btn-secondary">+ Zdarzenie</button>
+          <button class="btn btn-secondary">− Potrącenie</button>
+          <button class="btn btn-primary">Rozlicz</button>
+        </div>
+      </article>
+
+      <article class="child-card">
+        <div class="child-card__header">
+          <div>
+            <div class="child-name">Kuba</div>
+            <div class="child-meta">Ostatnie rozliczenie: 17.11.2025</div>
+          </div>
+          <div class="child-balance child-balance--neutral">
+            80,00 zł
+          </div>
+        </div>
+        <div class="child-card__body">
+          <div class="child-stats">
+            3 zdarzenia w okresie · brak potrąceń
+          </div>
+        </div>
+        <div class="child-card__actions">
+          <button class="btn btn-secondary">+ Zdarzenie</button>
+          <button class="btn btn-secondary">− Potrącenie</button>
+          <button class="btn btn-primary">Rozlicz</button>
+        </div>
+      </article>
+    </main>
+
+    <nav class="bottom-nav" aria-label="Nawigacja dolna">
+      <button class="bottom-nav__item bottom-nav__item--active">
+        <span class="bottom-nav__icon">👨‍👩‍👧</span>
+        <span class="bottom-nav__label">Dzieci</span>
+      </button>
+      <button class="bottom-nav__item">
+        <span class="bottom-nav__icon">📜</span>
+        <span class="bottom-nav__label">Historia</span>
+      </button>
+      <button class="bottom-nav__item">
+        <span class="bottom-nav__icon">⚙️</span>
+        <span class="bottom-nav__label">Ustawienia</span>
+      </button>
+    </nav>
+  </div>
+</body>
+</html>

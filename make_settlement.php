@@ -20,9 +20,9 @@ $today     = date('Y-m-d');   // faktyczna dzisiejsza data (limit)
 // To będzie domyślna / wybrana data rozliczenia
 $settlement_date = $today;
 
-$errors  = [];
-$success = '';
-$info    = '';
+$errors   = [];
+$success  = '';
+$info     = '';
 $children = [];
 
 // --- pobierz dzieci danego rodzica ---
@@ -40,6 +40,21 @@ if ($stmt) {
         $children[] = $row;
     }
     $stmt->close();
+}
+
+// --- ustal dziecko przekazane w URL (opcjonalnie) ---
+$selected_child_id = 0;
+$selected_child    = null;
+
+if (isset($_GET['dziecko_id'])) {
+    $tmp_id = (int)$_GET['dziecko_id'];
+    foreach ($children as $ch) {
+        if ((int)$ch['id'] === $tmp_id) {
+            $selected_child_id = $tmp_id;
+            $selected_child    = $ch;
+            break;
+        }
+    }
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -61,7 +76,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    $dziecko_id = intval($_POST['dziecko_id'] ?? 0);
+    // jeśli dziecko ustalone z URL i nie ma w POST, użyj tego z URL
+    $dziecko_id_post = intval($_POST['dziecko_id'] ?? 0);
+    if ($dziecko_id_post <= 0 && $selected_child_id > 0) {
+        $dziecko_id = $selected_child_id;
+    } else {
+        $dziecko_id = $dziecko_id_post;
+    }
 
     if ($dziecko_id <= 0) {
         $errors[] = 'Wybierz dziecko.';
@@ -69,7 +90,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // sprawdź, czy dziecko należy do tego rodzica i pobierz kieszonkowe
     $kieszonkowe_tyg = null;
-    $imie_dziecka = '';
+    $imie_dziecka    = '';
 
     if ($dziecko_id > 0 && empty($errors)) {
         $stmt = $mysqli->prepare('
@@ -96,7 +117,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     // 1. Ustal datę odniesienia do liczenia tygodni (start_ref)
-    $start_ref   = null;  // data, od której liczymy pełne tygodnie
+    $start_ref    = null;  // data, od której liczymy pełne tygodnie
     $had_previous = false; // czy były wcześniej rozliczenia?
 
     if (empty($errors)) {
@@ -113,7 +134,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->execute();
             $stmt->bind_result($last_okres_do);
             if ($stmt->fetch()) {
-                $start_ref = $last_okres_do;
+                $start_ref   = $last_okres_do;
                 $had_previous = true;
             }
             $stmt->close();
@@ -136,7 +157,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmt->close();
 
                 if ($min_data !== null) {
-                    $start_ref   = $min_data;
+                    $start_ref    = $min_data;
                     $had_previous = false;
                 } else {
                     $errors[] = 'Brak potrąceń – nie ma czego rozliczać.';
@@ -156,8 +177,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($start_ref > $settlement_date) {
             $errors[] = 'Data rozliczenia jest wcześniejsza niż ostatnie rozliczenie lub pierwsze potrącenie. Wybierz późniejszą datę.';
         } else {
-            $d1 = new DateTime($start_ref);
-            $d2 = new DateTime($settlement_date);
+            $d1   = new DateTime($start_ref);
+            $d2   = new DateTime($settlement_date);
             $diff = $d1->diff($d2);
             $days = (int)$diff->days;
 
@@ -286,12 +307,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
 
                 $success = 'Rozliczenie wykonane: ' . htmlspecialchars($imie_dziecka) .
-                           ' – okres ' . $okres_od . ' → ' . $okres_do .
-                           ' (' . $full_weeks . ' pełne tygodnie), brutto ' .
-                           number_format($brutto, 2) . ' zł, potrącenia ' .
-                           number_format($suma_potracen, 2) . ' zł, do wypłaty ' .
-                           number_format($netto, 2) . ' zł. (data rozliczenia: ' .
-                           htmlspecialchars($settlement_date) . ')';
+                           ' – <BR>okres ' . $okres_od . ' → ' . $okres_do .
+                           ' (' . $full_weeks . ' pełne tygodnie), <BR>kieszonkowe ' .
+                           number_format($brutto, 2) . ' zł, <BR>potrącenia ' .
+                           number_format($suma_potracen, 2) . ' zł, <BR>do wypłaty ' .
+                           number_format($netto, 2) . ' zł. <BR>data rozliczenia: ' .
+                           htmlspecialchars($settlement_date) . '<BR>';
             } else {
                 $errors[] = 'Błąd przy zapisie rozliczenia: ' . $stmt->error;
                 $stmt->close();
@@ -304,76 +325,237 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <html lang="pl">
 <head>
     <meta charset="UTF-8">
+    <!-- ważne dla telefonu -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
     <title>Rozliczenie (pełne tygodnie)</title>
     <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="mobile.css">
+
+    <style>
+      .layout-desktop { display: block; }
+      .layout-mobile  { display: none; }
+
+      @media (max-width: 768px) {
+        .layout-desktop { display: none; }
+        .layout-mobile  { display: block; }
+      }
+    </style>
 </head>
 <body>
-<div class="container">
-    <h1>Rozliczenie kieszonkowego (pełne tygodnie)</h1>
-    <div class="actions">
-        <a href="index.php" class="button button-secondary">&larr; Powrót do panelu</a>
-    </div>
 
-    <p>
-        System rozlicza <strong>pełne tygodnie</strong> od ostatniego rozliczenia
-        (albo od pierwszego potrącenia, jeśli to pierwsze rozliczenie).<br>
-        Przykład: jeśli minęły 2 pełne tygodnie, brutto = 2 × tygodniowe kieszonkowe.
-    </p>
-
-    <?php if (!empty($errors)): ?>
-        <div class="alert-error">
-            <ul>
-                <?php foreach ($errors as $e): ?>
-                    <li><?php echo htmlspecialchars($e); ?></li>
-                <?php endforeach; ?>
-            </ul>
+<!-- ================== WERSJA DESKTOPOWA ================== -->
+<div class="layout-desktop">
+    <div class="container">
+        <h1>Rozliczenie kieszonkowego (pełne tygodnie)</h1>
+        <div class="actions">
+            <a href="index.php" class="button button-secondary">&larr; Powrót do panelu</a>
         </div>
-    <?php endif; ?>
 
-    <?php if ($success): ?>
-        <div class="alert-success">
-            <?php echo $success; ?>
-        </div>
-    <?php endif; ?>
+        <p>
+            System rozlicza <strong>pełne tygodnie</strong> od ostatniego rozliczenia
+            (albo od pierwszego potrącenia, jeśli to pierwsze rozliczenie).<br>
+            Przykład: jeśli minęły 2 pełne tygodnie, brutto = 2 × tygodniowe kieszonkowe.
+        </p>
 
-    <?php if ($info): ?>
-        <div class="alert-info">
-            <?php echo htmlspecialchars($info); ?>
-        </div>
-    <?php endif; ?>
+        <?php if (!empty($errors)): ?>
+            <div class="alert-error">
+                <ul>
+                    <?php foreach ($errors as $e): ?>
+                        <li><?php echo htmlspecialchars($e); ?></li>
+                    <?php endforeach; ?>
+                </ul>
+            </div>
+        <?php endif; ?>
 
-    <?php if (empty($children)): ?>
-        <p>Nie masz jeszcze dodanych dzieci. Najpierw dodaj dziecko w panelu rodzica.</p>
-    <?php else: ?>
+        <?php if ($success): ?>
+            <div class="alert-success">
+                <?php echo $success; ?>
+            </div>
+        <?php endif; ?>
 
-        <form method="post">
-            <label for="dziecko_id">Dziecko do rozliczenia:</label>
-            <select name="dziecko_id" id="dziecko_id">
-                <option value="">-- wybierz --</option>
-                <?php foreach ($children as $child): ?>
-                    <option value="<?php echo (int)$child['id']; ?>"
-                        <?php if (!empty($_POST['dziecko_id']) && $_POST['dziecko_id'] == $child['id']) echo 'selected'; ?>>
+        <?php if ($info): ?>
+            <div class="alert-info">
+                <?php echo htmlspecialchars($info); ?>
+            </div>
+        <?php endif; ?>
+
+        <?php if (empty($children)): ?>
+            <p>Nie masz jeszcze dodanych dzieci. Najpierw dodaj dziecko w panelu rodzica.</p>
+        <?php else: ?>
+
+            <form method="post">
+                <?php if ($selected_child_id > 0 && $selected_child): ?>
+                    <p>
+                        <strong>Dziecko do rozliczenia:</strong><br>
                         <?php 
-                            echo htmlspecialchars($child['imie']) 
-                                 . ' (login: ' . htmlspecialchars($child['login']) . 
-                                 ', kieszonkowe: ' . htmlspecialchars($child['kieszonkowe_tygodniowe']) . ' zł)';
+                            echo htmlspecialchars($selected_child['imie']) 
+                                 . ' (login: ' . htmlspecialchars($selected_child['login']) .
+                                 ', kieszonkowe: ' . htmlspecialchars($selected_child['kieszonkowe_tygodniowe']) . ' zł)';
                         ?>
-                    </option>
-                <?php endforeach; ?>
-            </select>
+                    </p>
+                    <input type="hidden" name="dziecko_id" value="<?php echo (int)$selected_child_id; ?>">
+                <?php else: ?>
+                    <label for="dziecko_id">Dziecko do rozliczenia:</label>
+                    <select name="dziecko_id" id="dziecko_id">
+                        <option value="">-- wybierz --</option>
+                        <?php foreach ($children as $child): ?>
+                            <option value="<?php echo (int)$child['id']; ?>"
+                                <?php if (!empty($_POST['dziecko_id']) && $_POST['dziecko_id'] == $child['id']) echo 'selected'; ?>>
+                                <?php 
+                                    echo htmlspecialchars($child['imie']) 
+                                         . ' (login: ' . htmlspecialchars($child['login']) . 
+                                         ', kieszonkowe: ' . htmlspecialchars($child['kieszonkowe_tygodniowe']) . ' zł)';
+                                ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                <?php endif; ?>
 
-            <br><br>
+                <br><br>
 
-            <label for="data_rozliczenia">Data rozliczenia:</label>
-            <input type="date" name="data_rozliczenia" id="data_rozliczenia"
-                   value="<?php echo htmlspecialchars($settlement_date); ?>">
+                <label for="data_rozliczenia">Data rozliczenia:</label>
+                <input
+                    type="date"
+                    name="data_rozliczenia"
+                    id="data_rozliczenia"
+                    value="<?php echo htmlspecialchars($settlement_date); ?>"
+                >
 
-            <br><br>
-            <input type="submit" value="Wykonaj rozliczenie">
-        </form>
+                <br><br>
+                <input type="submit" value="Wykonaj rozliczenie">
+            </form>
 
-    <?php endif; ?>
+        <?php endif; ?>
 
+    </div>
 </div>
+
+<!-- ================== WERSJA MOBILNA ================== -->
+<div class="layout-mobile">
+    <div class="app">
+        <header class="app-header">
+            <div class="app-header__left">
+                <span class="app-logo">💰</span>
+                <span class="app-title">Rozliczenie</span>
+            </div>
+            <button class="icon-button" onclick="window.location.href='index.php'">
+                ⬅
+            </button>
+        </header>
+
+        <?php if (!empty($errors)): ?>
+            <section class="summary-row">
+                <article class="summary-card">
+                    <div class="summary-label">Błąd</div>
+                    <div class="summary-value summary-value--negative" style="font-size:0.9rem;">
+                        <?php foreach ($errors as $e): ?>
+                            <?php echo htmlspecialchars($e); ?><br>
+                        <?php endforeach; ?>
+                    </div>
+                </article>
+            </section>
+        <?php elseif ($success): ?>
+            <section class="summary-row">
+                <article class="summary-card">
+                    <div class="summary-label">Rozliczenie wykonane</div>
+                    <div class="summary-value" style="font-size:0.9rem;">
+                        <?php echo $success; ?>
+                    </div>
+                </article>
+            </section>
+        <?php else: ?>
+            <section class="period-bar">
+                <div class="period-main">Rozliczenie kieszonkowego</div>
+                <div class="period-sub">
+                    System liczy pełne tygodnie od ostatniego rozliczenia.
+                </div>
+            </section>
+        <?php endif; ?>
+
+        <?php if ($info): ?>
+            <section class="summary-row">
+                <article class="summary-card">
+                    <div class="summary-label">Informacja</div>
+                    <div class="summary-value" style="font-size:0.9rem;">
+                        <?php echo htmlspecialchars($info); ?>
+                    </div>
+                </article>
+            </section>
+        <?php endif; ?>
+
+        <main class="content">
+            <!-- Powrót do panelu -->
+            <article class="child-card">
+                <div class="child-card__actions">
+                    <a href="index.php" class="btn btn-secondary">
+                        ← Powrót do panelu
+                    </a>
+                </div>
+            </article>
+
+            <?php if (empty($children)): ?>
+                <p style="padding: 12px;">
+                    Nie masz jeszcze dodanych dzieci. Najpierw dodaj dziecko w panelu rodzica.
+                </p>
+            <?php else: ?>
+                <article class="child-card">
+                    <div class="child-card__body">
+                        <form method="post" class="mobile-form">
+                            <?php if ($selected_child_id > 0 && $selected_child): ?>
+                                <div class="mobile-label">
+                                    Dziecko do rozliczenia
+                                    <div style="font-weight:600; margin-top:4px;">
+                                        <?php 
+                                            echo htmlspecialchars($selected_child['imie']) 
+                                                 . ' (login: ' . htmlspecialchars($selected_child['login']) .
+                                                 ', kieszonkowe: ' . htmlspecialchars($selected_child['kieszonkowe_tygodniowe']) . ' zł)';
+                                        ?>
+                                    </div>
+                                </div>
+                                <input type="hidden" name="dziecko_id" value="<?php echo (int)$selected_child_id; ?>">
+                            <?php else: ?>
+                                <label class="mobile-label" for="dziecko_id_mobile">
+                                    Dziecko do rozliczenia
+                                    <select name="dziecko_id" id="dziecko_id_mobile" class="mobile-input">
+                                        <option value="">-- wybierz --</option>
+                                        <?php foreach ($children as $child): ?>
+                                            <option value="<?php echo (int)$child['id']; ?>"
+                                                <?php if (!empty($_POST['dziecko_id']) && $_POST['dziecko_id'] == $child['id']) echo 'selected'; ?>>
+                                                <?php 
+                                                    echo htmlspecialchars($child['imie']) 
+                                                         . ' (login: ' . htmlspecialchars($child['login']) . 
+                                                         ', kieszonkowe: ' . htmlspecialchars($child['kieszonkowe_tygodniowe']) . ' zł)';
+                                                ?>
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </label>
+                            <?php endif; ?>
+
+                            <label class="mobile-label" for="data_rozliczenia_mobile">
+                                Data rozliczenia
+                                <input
+                                    type="date"
+                                    name="data_rozliczenia"
+                                    id="data_rozliczenia_mobile"
+                                    class="mobile-input"
+                                    value="<?php echo htmlspecialchars($settlement_date); ?>"
+                                >
+                            </label>
+
+                            <div class="child-card__actions">
+                                <button type="submit" class="btn btn-primary">
+                                    Wykonaj rozliczenie
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </article>
+            <?php endif; ?>
+        </main>
+    </div>
+</div>
+
 </body>
 </html>

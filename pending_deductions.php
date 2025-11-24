@@ -8,7 +8,7 @@ if (!isset($_SESSION['user_id'], $_SESSION['rola'])) {
     exit;
 }
 
-$rola      = $_SESSION['rola'];
+$rola       = $_SESSION['rola'];
 $session_id = (int)$_SESSION['user_id'];
 
 // filtr okresu
@@ -111,88 +111,228 @@ if ($stmt) {
     $stmt->close();
 }
 
+// data od – do wyświetlenia (dla desktop i mobile)
+$from_date_display = null;
+if ($period !== 'all') {
+    $days = (int)$period;
+    $from_date_display = date('Y-m-d', strtotime("-{$days} days"));
+}
 ?>
 <!DOCTYPE html>
 <html lang="pl">
 <head>
     <meta charset="UTF-8">
     <title>Nierozliczone potrącenia</title>
+
+    <!-- ważne dla telefonów -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- style desktop -->
     <link rel="stylesheet" href="style.css">
+    <!-- style mobilne -->
+    <link rel="stylesheet" href="mobile.css">
+
+    <style>
+      .layout-desktop { display: block; }
+      .layout-mobile  { display: none; }
+
+      @media (max-width: 768px) {
+        .layout-desktop { display: none; }
+        .layout-mobile  { display: block; }
+      }
+    </style>
 </head>
 <body>
-<div class="container">
-    <h1>Nierozliczone potrącenia dla:
-        <?php echo htmlspecialchars($imie_dziecka); ?>
-        (login: <?php echo htmlspecialchars($login_dziecka); ?>)
-    </h1>
 
-    <div class="actions">
-        <a href="index.php" class="button button-secondary">&larr; Powrót do panelu</a>
-    </div>
+<!-- ================== WERSJA DESKTOPOWA ================== -->
+<div class="layout-desktop">
+    <div class="container">
+        <h1>Nierozliczone potrącenia dla:
+            <?php echo htmlspecialchars($imie_dziecka); ?>
+            (login: <?php echo htmlspecialchars($login_dziecka); ?>)
+        </h1>
 
-    <p>Tygodniowe kieszonkowe:
-        <strong><?php echo number_format((float)$kieszonkowe_tyg, 2); ?> zł</strong>
-    </p>
-
-    <!-- Formularz filtrowania -->
-    <h3>Filtrowanie</h3>
-    <form method="get">
-        <?php if ($rola === 'rodzic'): ?>
-            <input type="hidden" name="child_id" value="<?php echo (int)$child_id; ?>">
-        <?php endif; ?>
-
-        <label for="period">Pokaż potrącenia z okresu:</label>
-        <select name="period" id="period">
-            <option value="all" <?php if ($period === 'all') echo 'selected'; ?>>Cały okres (wszystkie)</option>
-            <option value="7" <?php if ($period === '7') echo 'selected'; ?>>Ostatnie 7 dni</option>
-            <option value="30" <?php if ($period === '30') echo 'selected'; ?>>Ostatnie 30 dni</option>
-            <option value="90" <?php if ($period === '90') echo 'selected'; ?>>Ostatnie 90 dni</option>
-        </select>
-
-        <br><br>
-        <input type="submit" value="Filtruj">
-    </form>
-
-    <?php if ($period !== 'all'): ?>
-        <?php
-        $days = (int)$period;
-        $from_date = date('Y-m-d', strtotime("-{$days} days"));
-        ?>
-        <div class="alert-info">
-            Pokazuję potrącenia od <strong><?php echo htmlspecialchars($from_date); ?></strong> do dzisiaj.
+        <div class="actions">
+            <a href="index.php" class="button button-secondary">&larr; Powrót do panelu</a>
         </div>
-    <?php endif; ?>
 
-    <?php if (empty($potracenia)): ?>
-        <p>Brak nierozliczonych potrąceń w wybranym okresie 🎉</p>
-    <?php else: ?>
-
-        <p>Łączna suma nierozliczonych potrąceń w wybranym okresie:
-            <strong><?php echo number_format($suma, 2); ?> zł</strong>
+        <p>Tygodniowe kieszonkowe:
+            <strong><?php echo number_format((float)$kieszonkowe_tyg, 2); ?> zł</strong>
         </p>
 
-        <div class="table-wrapper">
-            <table>
-                <tr>
-                    <th>Data zdarzenia</th>
-                    <th>Typ</th>
-                    <th>Kwota</th>
-                    <th>Opis</th>
-                    <th>Dodano (data/czas)</th>
-                </tr>
-                <?php foreach ($potracenia as $p): ?>
-                    <tr>
-                        <td><?php echo htmlspecialchars($p['data_zdarzenia']); ?></td>
-                        <td><?php echo htmlspecialchars($p['nazwa']); ?></td>
-                        <td><?php echo number_format($p['kwota'], 2); ?> zł</td>
-                        <td><?php echo htmlspecialchars($p['opis'] ?? ''); ?></td>
-                        <td><?php echo htmlspecialchars($p['utworzone_at']); ?></td>
-                    </tr>
-                <?php endforeach; ?>
-            </table>
-        </div>
-    <?php endif; ?>
+        <!-- Formularz filtrowania -->
+        <h3>Filtrowanie</h3>
+        <form method="get">
+            <?php if ($rola === 'rodzic'): ?>
+                <input type="hidden" name="child_id" value="<?php echo (int)$child_id; ?>">
+            <?php endif; ?>
 
+            <label for="period">Pokaż potrącenia z okresu:</label>
+            <select name="period" id="period">
+                <option value="all" <?php if ($period === 'all') echo 'selected'; ?>>Cały okres (wszystkie)</option>
+                <option value="7" <?php if ($period === '7') echo 'selected'; ?>>Ostatnie 7 dni</option>
+                <option value="30" <?php if ($period === '30') echo 'selected'; ?>>Ostatnie 30 dni</option>
+                <option value="90" <?php if ($period === '90') echo 'selected'; ?>>Ostatnie 90 dni</option>
+            </select>
+
+            <br><br>
+            <input type="submit" value="Filtruj">
+        </form>
+
+        <?php if ($period !== 'all' && $from_date_display !== null): ?>
+            <div class="alert-info">
+                Pokazuję potrącenia od <strong><?php echo htmlspecialchars($from_date_display); ?></strong> do dzisiaj.
+            </div>
+        <?php endif; ?>
+
+        <?php if (empty($potracenia)): ?>
+            <p>Brak nierozliczonych potrąceń w wybranym okresie 🎉</p>
+        <?php else: ?>
+
+            <p>Łączna suma nierozliczonych potrąceń w wybranym okresie:
+                <strong><?php echo number_format($suma, 2); ?> zł</strong>
+            </p>
+
+            <div class="table-wrapper">
+                <table>
+                    <tr>
+                        <th>Data zdarzenia</th>
+                        <th>Typ</th>
+                        <th>Kwota</th>
+                        <th>Opis</th>
+                        <th>Dodano (data/czas)</th>
+                    </tr>
+                    <?php foreach ($potracenia as $p): ?>
+                        <tr>
+                            <td><?php echo htmlspecialchars($p['data_zdarzenia']); ?></td>
+                            <td><?php echo htmlspecialchars($p['nazwa']); ?></td>
+                            <td><?php echo number_format($p['kwota'], 2); ?> zł</td>
+                            <td><?php echo htmlspecialchars($p['opis'] ?? ''); ?></td>
+                            <td><?php echo htmlspecialchars($p['utworzone_at']); ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                </table>
+            </div>
+        <?php endif; ?>
+
+    </div>
 </div>
+
+<!-- ================== WERSJA MOBILNA ================== -->
+<div class="layout-mobile">
+    <div class="app">
+        <header class="app-header">
+            <div class="app-header__left">
+                <span class="app-logo">💰</span>
+                <span class="app-title">Potrącenia</span>
+            </div>
+            <!--
+            <button class="icon-button" onclick="window.location.href='index.php'">
+                ⬅ Powrót do panelu
+            </button>
+            -->
+            <div class="child-card__actions">
+                <a href="index.php" class="btn btn-secondary">
+                    ← Powrót do panelu
+                </a>
+            </div>
+        </header>
+
+        <section class="period-bar">
+            <div class="period-main">
+                <?php echo htmlspecialchars($imie_dziecka); ?> – nierozliczone potrącenia
+            </div>
+            <div class="period-sub">
+                Tygodniowe: <?php echo number_format((float)$kieszonkowe_tyg, 2, ',', ' '); ?> zł
+            </div>
+        </section>
+
+        <section class="summary-row">
+            <article class="summary-card">
+                <div class="summary-label">Łączna suma potrąceń</div>
+                <div class="summary-value summary-value--negative">
+                    <?php echo number_format($suma, 2, ',', ' '); ?> zł
+                </div>
+            </article>
+
+            <?php if ($period !== 'all' && $from_date_display !== null): ?>
+                <article class="summary-card">
+                    <div class="summary-label">Zakres dat</div>
+                    <div class="summary-value" style="font-size:0.9rem;">
+                        Od <?php echo htmlspecialchars($from_date_display); ?> do dziś
+                    </div>
+                </article>
+            <?php endif; ?>
+        </section>
+
+<main class="content">
+            <!-- Powrót do panelu w wersji mobilnej -->
+            <article class="child-card">
+
+                <div class="child-card__body">
+                    <form method="get" class="mobile-form">
+                        <?php if ($rola === 'rodzic'): ?>
+                            <input type="hidden" name="child_id" value="<?php echo (int)$child_id; ?>">
+                        <?php endif; ?>
+
+                        <label class="mobile-label" for="period_mobile">
+                            Pokaż potrącenia z okresu:
+                            <select name="period" id="period_mobile" class="mobile-input">
+                                <option value="all" <?php if ($period === 'all') echo 'selected'; ?>>Cały okres</option>
+                                <option value="7" <?php if ($period === '7') echo 'selected'; ?>>Ostatnie 7 dni</option>
+                                <option value="30" <?php if ($period === '30') echo 'selected'; ?>>Ostatnie 30 dni</option>
+                                <option value="90" <?php if ($period === '90') echo 'selected'; ?>>Ostatnie 90 dni</option>
+                            </select>
+                        </label>
+
+                        <div class="child-card__actions">
+                            <button type="submit" class="btn btn-primary">
+                                Filtruj
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </article>
+
+            <?php if (empty($potracenia)): ?>
+                <p style="padding: 12px;">Brak nierozliczonych potrąceń w wybranym okresie 🎉</p>
+            <?php else: ?>
+                <?php foreach ($potracenia as $p): ?>
+                    <article class="child-card">
+                        <div class="child-card__header">
+                            <div>
+                                <div class="child-name">
+                                    <?php echo htmlspecialchars($p['nazwa']); ?>
+                                </div>
+                                <div class="child-meta">
+                                    Data zdarzenia: <?php echo htmlspecialchars($p['data_zdarzenia']); ?>
+                                </div>
+                            </div>
+                            <div class="child-balance child-balance--negative">
+                                -<?php echo number_format($p['kwota'], 2, ',', ' '); ?> zł
+                            </div>
+                        </div>
+
+                        <?php if (!empty($p['opis']) || !empty($p['utworzone_at'])): ?>
+                            <div class="child-card__body">
+                                <?php if (!empty($p['opis'])): ?>
+                                    <div class="child-stats">
+                                        <?php echo htmlspecialchars($p['opis']); ?>
+                                    </div>
+                                <?php endif; ?>
+                                <?php if (!empty($p['utworzone_at'])): ?>
+                                    <div class="child-meta" style="margin-top:4px;">
+                                        Dodano: <?php echo htmlspecialchars($p['utworzone_at']); ?>
+                                    </div>
+                                <?php endif; ?>
+                            </div>
+                        <?php endif; ?>
+                    </article>
+                <?php endforeach; ?>
+            <?php endif; ?>
+        </main>
+    </div>
+</div>
+
 </body>
 </html>
