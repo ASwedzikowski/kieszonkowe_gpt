@@ -1,0 +1,276 @@
+/* Ustawienia bazowe – mobile first */
+
+:root {
+  --bg: #f5f5f7;
+  --bg-card: #ffffff;
+  --primary: #2563eb;
+  --primary-soft: #e0ebff;
+  --accent: #16a34a;
+  --danger: #dc2626;
+  --text-main: #111827;
+  --text-muted: #6b7280;
+  --border-soft: #e5e7eb;
+  --radius-lg: 16px;
+  --shadow-soft: 0 8px 20px rgba(15, 23, 42, 0.06);
+   font-size: 19px;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: var(--bg);
+  color: var(--text-main);
+}
+
+.app {
+  min-height: 100vh;
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 0 12px 70px; /* dolny padding pod nawigację */
+  display: flex;
+  flex-direction: column;
+}
+
+/* Górny pasek */
+
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 4px 8px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--bg);
+}
+
+.app-header__left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.app-logo {
+  font-size: 1.4rem;
+}
+
+.app-title {
+  font-weight: 600;
+  font-size: 1.1rem;
+}
+
+.icon-button {
+  border: none;
+  background: transparent;
+  font-size: 1.4rem;
+  padding: 4px 8px;
+}
+
+/* Pasek okresu */
+
+.period-bar {
+  background: var(--primary-soft);
+  border-radius: var(--radius-lg);
+  padding: 10px 12px;
+  margin-bottom: 10px;
+}
+
+.period-main {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.period-sub {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+/* Karty podsumowań */
+
+.summary-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 8px 0 12px;
+}
+
+.summary-card {
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  padding: 10px 12px;
+  box-shadow: var(--shadow-soft);
+}
+
+.summary-label {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.summary-value {
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.summary-value--negative {
+  color: var(--danger);
+}
+
+/* Treść główna */
+
+.content {
+  flex: 1;
+}
+
+.section-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin: 8px 4px;
+  color: var(--text-muted);
+}
+
+/* Karty dzieci */
+
+.child-card {
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  box-shadow: var(--shadow-soft);
+}
+
+.child-card__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.child-name {
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.child-meta {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.child-balance {
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.child-balance--positive {
+  color: var(--accent);
+}
+
+.child-balance--neutral {
+  color: var(--text-main);
+}
+
+.child-balance--negative {
+  color: var(--danger);
+}
+
+.child-card__body {
+  margin-bottom: 8px;
+}
+
+.child-stats {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+/* Przyciski */
+
+.btn {
+  border-radius: 999px;
+  padding: 8px 12px;
+  font-size: 0.8rem;
+  border: none;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.btn-primary {
+  background: var(--primary);
+  color: #ffffff;
+}
+
+.btn-secondary {
+  background: #f3f4f6;
+  color: var(--text-main);
+}
+
+.child-card__actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+/* Dolna nawigacja */
+
+.bottom-nav {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 8px;
+  width: 100%;
+  max-width: 480px;
+  padding: 4px 10px;
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  background: rgba(248, 250, 252, 0.98);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 -4px 12px rgba(15, 23, 42, 0.15);
+  border-radius: 999px;
+}
+
+.bottom-nav__item {
+  flex: 1;
+  border: none;
+  border-radius: 999px;
+  padding: 4px 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-size: 0.75rem;
+  background: transparent;
+  color: var(--text-muted);
+}
+
+.bottom-nav__item--active {
+  background: var(--primary);
+  color: #ffffff;
+}
+
+.bottom-nav__icon {
+  font-size: 1rem;
+  line-height: 1.2;
+}
+
+.bottom-nav__label {
+  line-height: 1;
+}
+
+/* Trochę ulepszeń dla większych ekranów (opcjonalnie) */
+
+@media (min-width: 768px) {
+  .summary-row {
+    flex-direction: row;
+  }
+
+  .summary-card {
+    flex: 1;
+  }
+}

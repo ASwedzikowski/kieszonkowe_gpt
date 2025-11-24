@@ -15,7 +15,10 @@ if ($_SESSION['rola'] !== 'rodzic') {
 }
 
 $rodzic_id = (int)$_SESSION['user_id'];
-$today     = date('Y-m-d');
+$today     = date('Y-m-d');   // faktyczna dzisiejsza data (limit)
+
+// To będzie domyślna / wybrana data rozliczenia
+$settlement_date = $today;
 
 $errors  = [];
 $success = '';
@@ -40,6 +43,24 @@ if ($stmt) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+
+    // wczytaj wybraną datę rozliczenia
+    $data_rozliczenia = trim($_POST['data_rozliczenia'] ?? '');
+    if ($data_rozliczenia === '') {
+        $data_rozliczenia = $today;  // jak puste – przyjmij dzisiaj
+    }
+
+    // walidacja formatu
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $data_rozliczenia)) {
+        $errors[] = 'Nieprawidłowy format daty rozliczenia. Użyj YYYY-MM-DD.';
+    } else {
+        if ($data_rozliczenia > $today) {
+            $errors[] = 'Data rozliczenia nie może być w przyszłości.';
+        } else {
+            $settlement_date = $data_rozliczenia;
+        }
+    }
+
     $dziecko_id = intval($_POST['dziecko_id'] ?? 0);
 
     if ($dziecko_id <= 0) {
@@ -50,7 +71,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $kieszonkowe_tyg = null;
     $imie_dziecka = '';
 
-    if ($dziecko_id > 0) {
+    if ($dziecko_id > 0 && empty($errors)) {
         $stmt = $mysqli->prepare('
             SELECT imie, kieszonkowe_tygodniowe
             FROM uzytkownicy
@@ -74,35 +95,97 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errors[] = 'Dla dziecka nie ustawiono tygodniowego kieszonkowego.';
     }
 
-    // znajdź najstarszą nierozliczoną datę potrącenia (do dzisiaj włącznie)
-    $okres_od = null;
+    // 1. Ustal datę odniesienia do liczenia tygodni (start_ref)
+    $start_ref   = null;  // data, od której liczymy pełne tygodnie
+    $had_previous = false; // czy były wcześniej rozliczenia?
+
     if (empty($errors)) {
+        // Spróbuj znaleźć ostatnie rozliczenie
         $stmt = $mysqli->prepare('
-            SELECT MIN(data_zdarzenia) AS min_data
-            FROM potracenia
+            SELECT okres_do
+            FROM rozliczenia
             WHERE dziecko_id = ?
-              AND rozliczone = 0
-              AND data_zdarzenia <= ?
+            ORDER BY okres_do DESC
+            LIMIT 1
         ');
         if ($stmt) {
-            $stmt->bind_param('is', $dziecko_id, $today);
+            $stmt->bind_param('i', $dziecko_id);
             $stmt->execute();
-            $stmt->bind_result($okres_od);
-            $stmt->fetch();
+            $stmt->bind_result($last_okres_do);
+            if ($stmt->fetch()) {
+                $start_ref = $last_okres_do;
+                $had_previous = true;
+            }
             $stmt->close();
         } else {
-            $errors[] = 'Błąd przy odczycie najstarszego potrącenia.';
+            $errors[] = 'Błąd przy odczycie ostatniego rozliczenia.';
         }
 
-        if ($okres_od === null) {
-            $errors[] = 'Brak nierozliczonych potrąceń do rozliczenia (do ' . $today . ').';
+        // Jeśli brak rozliczeń – użyj daty pierwszego potrącenia
+        if ($start_ref === null) {
+            $stmt = $mysqli->prepare('
+                SELECT MIN(data_zdarzenia) AS min_data
+                FROM potracenia
+                WHERE dziecko_id = ?
+            ');
+            if ($stmt) {
+                $stmt->bind_param('i', $dziecko_id);
+                $stmt->execute();
+                $stmt->bind_result($min_data);
+                $stmt->fetch();
+                $stmt->close();
+
+                if ($min_data !== null) {
+                    $start_ref   = $min_data;
+                    $had_previous = false;
+                } else {
+                    $errors[] = 'Brak potrąceń – nie ma czego rozliczać.';
+                }
+            } else {
+                $errors[] = 'Błąd przy odczycie pierwszego potrącenia.';
+            }
         }
     }
 
-    // ustaw okres_do na dzisiaj
-    $okres_do = $today;
+    // 2. Policz ile pełnych tygodni minęło od start_ref do wybranej daty rozliczenia
+    $okres_od   = null;   // początek okresu rozliczenia (inclusive)
+    $okres_do   = null;   // koniec okresu rozliczenia (inclusive)
+    $full_weeks = 0;
 
-    // sprawdź, czy nie ma już rozliczenia o dokładnie takim zakresie (raczej nie będzie, ale dla pewności)
+    if (empty($errors)) {
+        if ($start_ref > $settlement_date) {
+            $errors[] = 'Data rozliczenia jest wcześniejsza niż ostatnie rozliczenie lub pierwsze potrącenie. Wybierz późniejszą datę.';
+        } else {
+            $d1 = new DateTime($start_ref);
+            $d2 = new DateTime($settlement_date);
+            $diff = $d1->diff($d2);
+            $days = (int)$diff->days;
+
+            // ile pełnych tygodni 7-dniowych minęło
+            $full_weeks = intdiv($days, 7);
+
+            if ($full_weeks < 1) {
+                $errors[] = 'Do wybranej daty nie minął jeszcze pełny tydzień od ostatniego rozliczenia / pierwszego potrącenia.';
+            } else {
+                // okres_do = start_ref + (full_weeks * 7 dni)
+                $okres_do = date('Y-m-d', strtotime($start_ref . ' + ' . ($full_weeks * 7) . ' days'));
+                if ($okres_do > $settlement_date) {
+                    $okres_do = $settlement_date;
+                }
+
+                // okres_od (inclusive):
+                // - przy pierwszym rozliczeniu: od pierwszej daty potrącenia
+                // - przy kolejnych: dzień po poprzednim okres_do
+                if ($had_previous) {
+                    $okres_od = date('Y-m-d', strtotime($start_ref . ' + 1 day'));
+                } else {
+                    $okres_od = $start_ref;
+                }
+            }
+        }
+    }
+
+    // 3. Sprawdź, czy nie ma już takiego rozliczenia
     if (empty($errors)) {
         $stmt = $mysqli->prepare('
             SELECT id
@@ -123,7 +206,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    // policz sumę nierozliczonych potrąceń w tym zakresie (do dzisiaj)
+    // 4. Policz sumę nierozliczonych potrąceń w tym zakresie [okres_od, okres_do]
     $suma_potracen = 0.0;
     if (empty($errors)) {
         $stmt = $mysqli->prepare('
@@ -131,7 +214,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             FROM potracenia
             WHERE dziecko_id = ?
               AND rozliczone = 0
-              AND data_zdarzenia BETWEEN ? AND ?
+              AND data_zdarzenia >= ?
+              AND data_zdarzenia <= ?
         ');
         if ($stmt) {
             $stmt->bind_param('iss', $dziecko_id, $okres_od, $okres_do);
@@ -144,35 +228,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
+    // 5. Oblicz brutto/netto
     if (empty($errors)) {
-        $brutto = (float)$kieszonkowe_tyg;
+        $brutto        = (float)$kieszonkowe_tyg * $full_weeks;
         $suma_potracen = (float)$suma_potracen;
-        $netto = $brutto - $suma_potracen;
+        $netto         = $brutto - $suma_potracen;
 
         if ($netto < 0) {
             $netto = 0.0;
-            $info = 'Uwaga: suma potrąceń przekroczyła kieszonkowe, ustawiono kwotę do wypłaty na 0 zł.';
+            $info = 'Uwaga: suma potrąceń przekroczyła należne kieszonkowe za ' . $full_weeks . ' tydzień/tygodnie. Kwotę do wypłaty ustawiono na 0 zł.';
         }
 
-        // wstaw rozliczenie
+        // przygotuj datetime rozliczenia (użyj wybranej daty + aktualny czas)
+        $data_rozliczenia_dt = $settlement_date . ' ' . date('H:i:s');
+
+        // 6. Zapisz rozliczenie (tym razem jawnie ustawiamy data_rozliczenia)
         $stmt = $mysqli->prepare('
             INSERT INTO rozliczenia
                 (dziecko_id, okres_od, okres_do, kieszonkowe_brutto,
-                 suma_potracen, kieszonkowe_netto, rozliczyl_id)
+                 suma_potracen, kieszonkowe_netto, data_rozliczenia, rozliczyl_id)
             VALUES
-                (?, ?, ?, ?, ?, ?, ?)
+                (?, ?, ?, ?, ?, ?, ?, ?)
         ');
         if (!$stmt) {
             $errors[] = 'Błąd przygotowania zapytania (INSERT rozliczenia).';
         } else {
             $stmt->bind_param(
-                'issdddi',
+                'issddssi',
                 $dziecko_id,
                 $okres_od,
                 $okres_do,
                 $brutto,
                 $suma_potracen,
                 $netto,
+                $data_rozliczenia_dt,
                 $rodzic_id
             );
 
@@ -180,14 +269,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $rozliczenie_id = $stmt->insert_id;
                 $stmt->close();
 
-                // oznacz potrącenia jako rozliczone (tylko do dziś)
+                // 7. Oznacz potrącenia jako rozliczone w [okres_od, okres_do]
                 $stmt2 = $mysqli->prepare('
                     UPDATE potracenia
                     SET rozliczone = 1,
                         rozliczenie_id = ?
                     WHERE dziecko_id = ?
                       AND rozliczone = 0
-                      AND data_zdarzenia BETWEEN ? AND ?
+                      AND data_zdarzenia >= ?
+                      AND data_zdarzenia <= ?
                 ');
                 if ($stmt2) {
                     $stmt2->bind_param('iiss', $rozliczenie_id, $dziecko_id, $okres_od, $okres_do);
@@ -197,9 +287,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 $success = 'Rozliczenie wykonane: ' . htmlspecialchars($imie_dziecka) .
                            ' – okres ' . $okres_od . ' → ' . $okres_do .
-                           ', brutto ' . number_format($brutto, 2) . ' zł, potrącenia ' .
+                           ' (' . $full_weeks . ' pełne tygodnie), brutto ' .
+                           number_format($brutto, 2) . ' zł, potrącenia ' .
                            number_format($suma_potracen, 2) . ' zł, do wypłaty ' .
-                           number_format($netto, 2) . ' zł.';
+                           number_format($netto, 2) . ' zł. (data rozliczenia: ' .
+                           htmlspecialchars($settlement_date) . ')';
             } else {
                 $errors[] = 'Błąd przy zapisie rozliczenia: ' . $stmt->error;
                 $stmt->close();
@@ -212,19 +304,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <html lang="pl">
 <head>
     <meta charset="UTF-8">
-    <title>Rozliczenie (do teraz)</title>
+    <title>Rozliczenie (pełne tygodnie)</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <div class="container">
-    <h1>Rozliczenie kieszonkowego (do dzisiaj)</h1>
+    <h1>Rozliczenie kieszonkowego (pełne tygodnie)</h1>
     <div class="actions">
         <a href="index.php" class="button button-secondary">&larr; Powrót do panelu</a>
     </div>
 
-    <p>Aktualna data (koniec okresu rozliczenia): <strong><?php echo htmlspecialchars($today); ?></strong></p>
-    <p>System rozliczy <strong>wszystkie nierozliczone potrącenia do tej daty włącznie</strong>.  
-       Potrącenia z datą w przyszłości nie zostaną uwzględnione.</p>
+    <p>
+        System rozlicza <strong>pełne tygodnie</strong> od ostatniego rozliczenia
+        (albo od pierwszego potrącenia, jeśli to pierwsze rozliczenie).<br>
+        Przykład: jeśli minęły 2 pełne tygodnie, brutto = 2 × tygodniowe kieszonkowe.
+    </p>
 
     <?php if (!empty($errors)): ?>
         <div class="alert-error">
@@ -269,7 +363,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </select>
 
             <br><br>
-            <input type="submit" value="Wykonaj rozliczenie do dzisiaj">
+
+            <label for="data_rozliczenia">Data rozliczenia:</label>
+            <input type="date" name="data_rozliczenia" id="data_rozliczenia"
+                   value="<?php echo htmlspecialchars($settlement_date); ?>">
+
+            <br><br>
+            <input type="submit" value="Wykonaj rozliczenie">
         </form>
 
     <?php endif; ?>
