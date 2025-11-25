@@ -1,0 +1,11 @@
+{
+    "name": "artur/kieszonkowe_gpt",
+    "authors": [
+        {
+            "name": "Artur Swedzikowski"
+        }
+    ],
+    "require": {
+        "lbuchs/webauthn": "^2.2"
+    }
+}

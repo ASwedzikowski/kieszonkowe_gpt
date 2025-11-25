@@ -54,7 +54,6 @@ $rola    = $_SESSION['rola'] ?? '';
             <!-- ================== PANEL RODZICA ================== -->
 
             <h2>Panel rodzica</h2>
-
             <p><a href="add_child.php">➕ Dodaj dziecko</a></p>
             <!-- ten link może zostać jako „ogólny” (wtedy w add_deduction.php wybierasz dziecko z listy) -->
             <p><a href="add_deduction.php">➖ Dodaj potrącenie</a></p>
@@ -650,6 +649,12 @@ $rola    = $_SESSION['rola'] ?? '';
                     <?php echo ($rola === 'rodzic') ? 'Dzieci' : 'Podsumowanie'; ?>
                 </span>
             </button>
+            <!--
+            <button type="button" class="bottom-nav__item" onclick="webauthnRegister()">
+            Dodaj odcisk palca
+            </button>
+            <script src="webauthn.js"></script>
+            -->
             <button class="bottom-nav__item" onclick="window.location.href='logout.php'">
                 <span class="bottom-nav__icon">⎋</span>
                 <span class="bottom-nav__label">Wyloguj</span>
