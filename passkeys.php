@@ -171,6 +171,14 @@ if ($stmt) {
                 display: none; /* ukrywamy sign_count na małych ekranach */
             }
         }
+        @media (max-width: 480px) {
+    /* Ukryj kolumnę „Dodany” (2) na bardzo wąskich ekranach */
+    table.passkeys-table th:nth-child(2),
+    table.passkeys-table td:nth-child(2) {
+        display: none;
+    }
+}
+
     </style>
 </head>
 <body>
@@ -221,8 +229,10 @@ if ($stmt) {
                 <tr>
                     <td>
                         <span class="badge">
-                            ID #<?php echo (int)$k['id']; ?> –
+                            ID #<?php echo (int)$k['id']; ?>
+                            <!-- –
                             <?php echo htmlspecialchars($k['short_id'], ENT_QUOTES, 'UTF-8'); ?>…
+                            -->
                         </span>
                     </td>
                     <td><?php echo htmlspecialchars($k['created_at'], ENT_QUOTES, 'UTF-8'); ?></td>

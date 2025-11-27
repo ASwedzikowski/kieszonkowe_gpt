@@ -1,6 +1,11 @@
 <?php
 // index.php
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+
 require_once 'config.php';
+require_once 'rozliczenia_funkcje.php';
 
 // Sprawdzenie, czy użytkownik jest zalogowany
 if (!isset($_SESSION['user_id'])) {
@@ -233,16 +238,17 @@ $rola    = $_SESSION['rola'] ?? '';
             $suma_nierozliczonych = (float)$suma_nierozliczonych;
 
             // 3. Teoretyczna kwota do wypłaty "gdyby rozliczyć teraz"
-            $teoretyczne_netto = $kieszonkowe_tyg - $suma_nierozliczonych;
-            if ($teoretyczne_netto < 0) {
-                $teoretyczne_netto = 0.0;
-            }
+            $teoretyczne_netto = obliczHipotetyczneKieszonkoweNaDzis(
+                $mysqli,
+                $user_id,
+                $kieszonkowe_tyg,
+                $suma_nierozliczonych
+            );
             ?>
 
             <h2>Panel dziecka</h2>
 
             <h3>Podsumowanie</h3>
-            <p>Tygodniowe kieszonkowe: <strong><?php echo number_format($kieszonkowe_tyg, 2); ?> zł</strong></p>
             <p>Aktualnie odpisane (nierozliczone jeszcze):
                 <strong><?php echo number_format($suma_nierozliczonych, 2); ?> zł</strong></p>
             <p>Gdyby dziś było rozliczenie, dostał(a)byś:
@@ -545,8 +551,6 @@ $rola    = $_SESSION['rola'] ?? '';
                                 </div>
                             </div>
                             <div class="child-card__actions">
-                                <!-- add_event.php możesz mieć lub usunąć, ważny jest link do add_deduction.php -->
-                                <!-- <a href="add_event.php?dziecko_id=<?php echo (int)$c['id']; ?>" class="btn btn-secondary">+ Zdarzenie</a> -->
                                 <a href="add_deduction.php?dziecko_id=<?php echo (int)$c['id']; ?>" class="btn btn-secondary">− Potrącenie</a>
                                 <a href="make_settlement.php?dziecko_id=<?php echo (int)$c['id']; ?>" class="btn btn-primary">Rozlicz</a>
                             </div>
@@ -593,10 +597,12 @@ $rola    = $_SESSION['rola'] ?? '';
             }
             $suma_nierozliczonych_m = (float)$suma_nierozliczonych_m;
 
-            $teoretyczne_netto_m = $kieszonkowe_tyg_m - $suma_nierozliczonych_m;
-            if ($teoretyczne_netto_m < 0) {
-                $teoretyczne_netto_m = 0.0;
-            }
+            $teoretyczne_netto_m = obliczHipotetyczneKieszonkoweNaDzis(
+                $mysqli,
+                $user_id,
+                $kieszonkowe_tyg_m,
+                $suma_nierozliczonych_m
+            );
             ?>
 
             <section class="period-bar">
@@ -606,21 +612,15 @@ $rola    = $_SESSION['rola'] ?? '';
 
             <section class="summary-row">
                 <article class="summary-card">
-                    <div class="summary-label">Tygodniowe kieszonkowe</div>
+                    <div class="summary-label">Gdyby dziś było rozliczenie</div>
                     <div class="summary-value">
-                        <?php echo number_format($kieszonkowe_tyg_m, 2, ',', ' '); ?> zł
+                        <?php echo number_format($teoretyczne_netto_m, 2, ',', ' '); ?> zł
                     </div>
                 </article>
                 <article class="summary-card">
                     <div class="summary-label">Odpisane (nierozliczone)</div>
                     <div class="summary-value summary-value--negative">
                         <?php echo number_format($suma_nierozliczonych_m, 2, ',', ' '); ?> zł
-                    </div>
-                </article>
-                <article class="summary-card">
-                    <div class="summary-label">Gdyby dziś było rozliczenie</div>
-                    <div class="summary-value">
-                        <?php echo number_format($teoretyczne_netto_m, 2, ',', ' '); ?> zł
                     </div>
                 </article>
             </section>
@@ -650,9 +650,9 @@ $rola    = $_SESSION['rola'] ?? '';
                 </span>
             </button>
 
-            <button type="button" class="bottom-nav__item" onclick="window.location.href='logout.php'">
-            <span class="bottom-nav__icon">⎋</span>
-           <span class="bottom-nav__label"> Odciski palca</span>
+            <button type="button" class="bottom-nav__item" onclick="window.location.href='passkeys.php'">
+                <span class="bottom-nav__icon">🖐️</span>
+                <span class="bottom-nav__label">Odciski palca</span>
             </button>
             <script src="webauthn.js"></script>
 
