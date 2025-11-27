@@ -175,13 +175,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <p style="text-align:center; margin-top:12px;">
                 <a href="register.php">Nie mam konta – rejestracja rodzica</a>
             </p>
-            <!--
             <p style="text-align:center; margin-top:12px;">
             <button class="bottom-nav__item bottom-nav__item--active" type="button" onclick="webauthnLogin()">
                 Zaloguj odciskiem palca / passkey
             </button>
             </p>
-            -->
+
         </main>
 
         <nav class="bottom-nav" aria-label="Nawigacja dolna">
