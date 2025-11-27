@@ -16,22 +16,41 @@ if (isset($_SESSION['user_id'])) {
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="mobile.css">
 </head>
-<body>
-    <div class="login-container">
-        <h1>Kieszonkowe – logowanie</h1>
+<body class="login-body">
+    <div class="login-page">
+        <div class="login-card">
+            <div class="login-card__header">
+                <span class="login-logo">💰</span>
+                <div>
+                    <h1 class="login-title">Kieszonkowe</h1>
+                    <p class="login-subtitle">Wybierz sposób logowania</p>
+                </div>
+            </div>
 
-        <p>
-            Zaloguj się <strong>odciskiem palca / passkey</strong>.
-        </p>
+            <div class="login-card__content">
+                <button
+                    type="button"
+                    class="button login-button login-button--primary"
+                    onclick="webauthnLoginNoUsername()"
+                >
+                    <span class="login-button__icon">🖐️</span>
+                    <span>Zaloguj odciskiem</span>
+                </button>
 
-        <button type="button" onclick="webauthnLoginNoUsername()" class="primary-button">
-            Zaloguj odciskiem palca / passkey
-        </button>
+                <a
+                    href="login_password.php"
+                    class="button login-button login-button--secondary"
+                >
+                    <span class="login-button__icon">🔑</span>
+                    <span>Zaloguj hasłem</span>
+                </a>
+            </div>
 
-        <p style="margin-top:1em;font-size:0.9em;opacity:0.7;">
-            Jeśli coś nie działa, możesz awaryjnie użyć
-            <a href="login_password.php">logowania hasłem</a>.
-        </p>
+            <p class="login-help">
+                Jeśli logowanie odciskiem palca nie działa na tym urządzeniu,
+                zawsze możesz skorzystać z logowania hasłem.
+            </p>
+        </div>
     </div>
 
     <script src="webauthn.js?v=3"></script>
