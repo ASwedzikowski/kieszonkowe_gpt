@@ -226,5 +226,102 @@ async function webauthnLogin() {
     }
 }
 
+
+async function webauthnLoginNoUsername() {
+    try {
+        // 1. Pobierz od serwera parametry logowania dla passkey (bez loginu)
+        const res = await fetch('webauthn_login_nouser_begin.php', {
+            method: 'POST',
+            credentials: 'include'
+        });
+
+        const text1 = await res.text();
+        console.log('login_nouser_begin raw:', text1);
+
+        if (!text1) {
+            alert('Pusta odpowiedź z webauthn_login_nouser_begin.php');
+            return;
+        }
+
+        let beginData;
+        try {
+            beginData = JSON.parse(text1);
+        } catch (e) {
+            alert('Odpowiedź z webauthn_login_nouser_begin.php nie jest JSON-em: ' + e.message);
+            return;
+        }
+
+        if (beginData.error) {
+            alert('Błąd (begin): ' + beginData.error);
+            return;
+        }
+
+        const publicKey = beginData.publicKey || beginData;
+
+        // 2. challenge base64url -> ArrayBuffer
+        publicKey.challenge = base64urlToArrayBuffer(publicKey.challenge);
+
+        if (publicKey.allowCredentials) {
+            publicKey.allowCredentials = publicKey.allowCredentials.map(c => ({
+                type: c.type,
+                id: base64urlToArrayBuffer(c.id),
+                transports: c.transports || ['internal']
+            }));
+        }
+
+        // 3. WebAuthn get() – system pokaże listę passkey / konto do wyboru
+        const assertion = await navigator.credentials.get({ publicKey });
+
+        // 4. Dane dla serwera
+        const payload = {
+            id: arrayBufferToBase64url(assertion.rawId),
+            type: assertion.type,
+            response: {
+                clientDataJSON:    arrayBufferToBase64url(assertion.response.clientDataJSON),
+                authenticatorData: arrayBufferToBase64url(assertion.response.authenticatorData),
+                signature:         arrayBufferToBase64url(assertion.response.signature),
+                userHandle:        assertion.response.userHandle
+                    ? arrayBufferToBase64url(assertion.response.userHandle)
+                    : null
+            }
+        };
+
+        const res2 = await fetch('webauthn_login_nouser_finish.php', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            credentials: 'include',
+            body: JSON.stringify(payload)
+        });
+
+        const text2 = await res2.text();
+        console.log('login_nouser_finish raw:', text2);
+
+        if (!text2) {
+            alert('Pusta odpowiedź z webauthn_login_nouser_finish.php');
+            return;
+        }
+
+        let result;
+        try {
+            result = JSON.parse(text2);
+        } catch (e) {
+            alert('Finish: odpowiedź nie jest JSON-em: ' + e.message);
+            return;
+        }
+
+        if (result.success) {
+            window.location.href = result.redirect || 'index.php';
+        } else {
+            alert('Błąd logowania (no username): ' + (result.error || 'nieznany błąd'));
+        }
+
+    } catch (e) {
+        console.error(e);
+        alert('Błąd WebAuthn (no username): ' + e.message);
+    }
+}
+
+
+
 console.log('webauthn.js załadowany');
 // Koniec webauthn.js

@@ -60,9 +60,9 @@ $createArgs = $webAuthn->getCreateArgs(
     $webauthnUserName,
     $webauthnDisplayName,
     60,
-    false,
-    'preferred',
-    null,
+    true,        // requireResidentKey = true → prosimy o passkey
+    true,        // requireUserVerification = true → wymóg odcisku/PIN
+    null,        // authenticatorAttachment (null = dowolny)
     $excludeCredentialIds
 );
 
