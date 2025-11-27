@@ -310,9 +310,13 @@ async function webauthnLoginNoUsername() {
         }
 
         if (result.success) {
-            window.location.href = result.redirect || 'index.php';
+            if (result.redirect) {
+                window.location.href = result.redirect;
+            } else {
+                alert('Dodano logowanie odciskiem palca / passkey 🎉');
+            }
         } else {
-            alert('Błąd logowania (no username): ' + (result.error || 'nieznany błąd'));
+            alert('Błąd rejestracji: ' + (result.error || 'nieznany'));
         }
 
     } catch (e) {
@@ -323,5 +327,5 @@ async function webauthnLoginNoUsername() {
 
 
 
-console.log('webauthn.js załadowany');
+//console.log('webauthn.js załadowany');
 // Koniec webauthn.js

@@ -34,6 +34,6 @@ if (isset($_SESSION['user_id'])) {
         </p>
     </div>
 
-    <script src="webauthn.js"></script>
+    <script src="webauthn.js?v=3"></script>
 </body>
 </html>

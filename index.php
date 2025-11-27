@@ -650,8 +650,9 @@ $rola    = $_SESSION['rola'] ?? '';
                 </span>
             </button>
 
-            <button type="button" class="bottom-nav__item" onclick="webauthnRegister()">
-            Dodaj odcisk palca
+            <button type="button" class="bottom-nav__item" onclick="window.location.href='logout.php'">
+            <span class="bottom-nav__icon">⎋</span>
+           <span class="bottom-nav__label"> Odciski palca</span>
             </button>
             <script src="webauthn.js"></script>
 

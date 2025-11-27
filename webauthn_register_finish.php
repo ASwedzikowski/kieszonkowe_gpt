@@ -93,7 +93,11 @@ $result = $webAuthn->processCreate(
     $stmt->execute();
     $stmt->close();
 
-    echo json_encode(['success' => true]);
+    echo json_encode([
+    'success'  => true,
+    'redirect' => 'passkeys.php'
+]);
+
 
 } catch (\Throwable $e) {
     // Na razie NIE dajemy 500, żeby JS spokojnie odczytał JSON
