@@ -1,22 +1,18 @@
 <?php
 // index.php
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
-
 require_once 'config.php';
-require_once 'rozliczenia_funkcje.php';
-
+// zakaz cache'owania chronionych stron
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+header('Cache-Control: post-check=0, pre-check=0', false);
+header('Pragma: no-cache');
 // Sprawdzenie, czy użytkownik jest zalogowany
 if (!isset($_SESSION['user_id'])) {
     header('Location: login.php');
     exit;
 }
-
 $user_id = $_SESSION['user_id'];
 $imie    = $_SESSION['imie'] ?? '';
 $rola    = $_SESSION['rola'] ?? '';
-
 ?>
 <!DOCTYPE html>
 <html lang="pl">
@@ -24,7 +20,8 @@ $rola    = $_SESSION['rola'] ?? '';
     <meta charset="UTF-8">
     <!-- ważne dla telefonu -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
+    <link rel="manifest" href="manifest.webmanifest">
+    <meta name="theme-color" content="#0f172a">
     <!-- STARE STYLE (desktop) -->
     <link rel="stylesheet" href="style.css">
 
@@ -46,6 +43,9 @@ $rola    = $_SESSION['rola'] ?? '';
 </head>
 <body>
 
+
+
+
 <!-- ================== WERSJA DESKTOPOWA (to co było) ================== -->
 <div class="layout-desktop">
     <div class="container">
@@ -59,6 +59,7 @@ $rola    = $_SESSION['rola'] ?? '';
             <!-- ================== PANEL RODZICA ================== -->
 
             <h2>Panel rodzica</h2>
+
             <p><a href="add_child.php">➕ Dodaj dziecko</a></p>
             <!-- ten link może zostać jako „ogólny” (wtedy w add_deduction.php wybierasz dziecko z listy) -->
             <p><a href="add_deduction.php">➖ Dodaj potrącenie</a></p>
@@ -238,17 +239,16 @@ $rola    = $_SESSION['rola'] ?? '';
             $suma_nierozliczonych = (float)$suma_nierozliczonych;
 
             // 3. Teoretyczna kwota do wypłaty "gdyby rozliczyć teraz"
-            $teoretyczne_netto = obliczHipotetyczneKieszonkoweNaDzis(
-                $mysqli,
-                $user_id,
-                $kieszonkowe_tyg,
-                $suma_nierozliczonych
-            );
+            $teoretyczne_netto = $kieszonkowe_tyg - $suma_nierozliczonych;
+            if ($teoretyczne_netto < 0) {
+                $teoretyczne_netto = 0.0;
+            }
             ?>
 
             <h2>Panel dziecka</h2>
 
             <h3>Podsumowanie</h3>
+            <p>Tygodniowe kieszonkowe: <strong><?php echo number_format($kieszonkowe_tyg, 2); ?> zł</strong></p>
             <p>Aktualnie odpisane (nierozliczone jeszcze):
                 <strong><?php echo number_format($suma_nierozliczonych, 2); ?> zł</strong></p>
             <p>Gdyby dziś było rozliczenie, dostał(a)byś:
@@ -551,6 +551,8 @@ $rola    = $_SESSION['rola'] ?? '';
                                 </div>
                             </div>
                             <div class="child-card__actions">
+                                <!-- add_event.php możesz mieć lub usunąć, ważny jest link do add_deduction.php -->
+                                <!-- <a href="add_event.php?dziecko_id=<?php echo (int)$c['id']; ?>" class="btn btn-secondary">+ Zdarzenie</a> -->
                                 <a href="add_deduction.php?dziecko_id=<?php echo (int)$c['id']; ?>" class="btn btn-secondary">− Potrącenie</a>
                                 <a href="make_settlement.php?dziecko_id=<?php echo (int)$c['id']; ?>" class="btn btn-primary">Rozlicz</a>
                             </div>
@@ -597,12 +599,10 @@ $rola    = $_SESSION['rola'] ?? '';
             }
             $suma_nierozliczonych_m = (float)$suma_nierozliczonych_m;
 
-            $teoretyczne_netto_m = obliczHipotetyczneKieszonkoweNaDzis(
-                $mysqli,
-                $user_id,
-                $kieszonkowe_tyg_m,
-                $suma_nierozliczonych_m
-            );
+            $teoretyczne_netto_m = $kieszonkowe_tyg_m - $suma_nierozliczonych_m;
+            if ($teoretyczne_netto_m < 0) {
+                $teoretyczne_netto_m = 0.0;
+            }
             ?>
 
             <section class="period-bar">
@@ -612,15 +612,21 @@ $rola    = $_SESSION['rola'] ?? '';
 
             <section class="summary-row">
                 <article class="summary-card">
-                    <div class="summary-label">Gdyby dziś było rozliczenie</div>
+                    <div class="summary-label">Tygodniowe kieszonkowe</div>
                     <div class="summary-value">
-                        <?php echo number_format($teoretyczne_netto_m, 2, ',', ' '); ?> zł
+                        <?php echo number_format($kieszonkowe_tyg_m, 2, ',', ' '); ?> zł
                     </div>
                 </article>
                 <article class="summary-card">
                     <div class="summary-label">Odpisane (nierozliczone)</div>
                     <div class="summary-value summary-value--negative">
                         <?php echo number_format($suma_nierozliczonych_m, 2, ',', ' '); ?> zł
+                    </div>
+                </article>
+                <article class="summary-card">
+                    <div class="summary-label">Gdyby dziś było rozliczenie</div>
+                    <div class="summary-value">
+                        <?php echo number_format($teoretyczne_netto_m, 2, ',', ' '); ?> zł
                     </div>
                 </article>
             </section>
@@ -649,13 +655,6 @@ $rola    = $_SESSION['rola'] ?? '';
                     <?php echo ($rola === 'rodzic') ? 'Dzieci' : 'Podsumowanie'; ?>
                 </span>
             </button>
-
-            <button type="button" class="bottom-nav__item" onclick="window.location.href='passkeys.php'">
-                <span class="bottom-nav__icon">🖐️</span>
-                <span class="bottom-nav__label">Odciski palca</span>
-            </button>
-            <script src="webauthn.js"></script>
-
             <button class="bottom-nav__item" onclick="window.location.href='logout.php'">
                 <span class="bottom-nav__icon">⎋</span>
                 <span class="bottom-nav__label">Wyloguj</span>
@@ -664,5 +663,19 @@ $rola    = $_SESSION['rola'] ?? '';
     </div> <!-- .app -->
 </div> <!-- .layout-mobile -->
 
-</body>
+
+<!-- Rejestracja service workera (taka sama jak w index.php) -->
+    <script>
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function () {
+            navigator.serviceWorker.register('/sw.js')
+                .then(function (reg) {
+                    console.log('Service Worker zarejestrowany (login.php), scope:', reg.scope);
+                })
+                .catch(function (err) {
+                    console.error('Błąd rejestracji SW (login.php):', err);
+                });
+        });
+    }
+    </script></body>
 </html>

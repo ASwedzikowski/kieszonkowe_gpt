@@ -1,7 +1,10 @@
 <?php
 // add_deduction.php
 require_once 'config.php';
-
+// zakaz cache'owania chronionych stron
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+header('Cache-Control: post-check=0, pre-check=0', false);
+header('Pragma: no-cache');
 // Musi być zalogowany rodzic
 if (!isset($_SESSION['user_id'], $_SESSION['rola'])) {
     header('Location: login.php');
