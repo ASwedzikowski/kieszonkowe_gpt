@@ -5,6 +5,7 @@ require_once 'config.php';
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 header('Cache-Control: post-check=0, pre-check=0', false);
 header('Pragma: no-cache');
+
 // Musi być zalogowany rodzic
 if (!isset($_SESSION['user_id'], $_SESSION['rola'])) {
     header('Location: login.php');
@@ -137,7 +138,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->execute();
             $stmt->bind_result($last_okres_do);
             if ($stmt->fetch()) {
-                $start_ref   = $last_okres_do;
+                $start_ref    = $last_okres_do;
                 $had_previous = true;
             }
             $stmt->close();
@@ -191,11 +192,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($full_weeks < 1) {
                 $errors[] = 'Do wybranej daty nie minął jeszcze pełny tydzień od ostatniego rozliczenia / pierwszego potrącenia.';
             } else {
-                // okres_do = start_ref + (full_weeks * 7 dni)
-                $okres_do = date('Y-m-d', strtotime($start_ref . ' + ' . ($full_weeks * 7) . ' days'));
-                if ($okres_do > $settlement_date) {
-                    $okres_do = $settlement_date;
-                }
+                // NOWA LOGIKA:
+                // okres_do = ZAWSZE wybrana data rozliczenia (rozliczamy wszystko do tej daty)
+                $okres_do = $settlement_date;
 
                 // okres_od (inclusive):
                 // - przy pierwszym rozliczeniu: od pierwszej daty potrącenia
@@ -204,6 +203,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $okres_od = date('Y-m-d', strtotime($start_ref . ' + 1 day'));
                 } else {
                     $okres_od = $start_ref;
+                }
+
+                // kontrolnie: okres_od nie może być po okres_do
+                if ($okres_od > $okres_do) {
+                    $errors[] = 'Błąd zakresu dat (okres_od > okres_do). Sprawdź dane w bazie.';
                 }
             }
         }
@@ -254,6 +258,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // 5. Oblicz brutto/netto
     if (empty($errors)) {
+        // brutto nadal wg pełnych tygodni od start_ref
         $brutto        = (float)$kieszonkowe_tyg * $full_weeks;
         $suma_potracen = (float)$suma_potracen;
         $netto         = $brutto - $suma_potracen;
@@ -266,7 +271,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // przygotuj datetime rozliczenia (użyj wybranej daty + aktualny czas)
         $data_rozliczenia_dt = $settlement_date . ' ' . date('H:i:s');
 
-        // 6. Zapisz rozliczenie (tym razem jawnie ustawiamy data_rozliczenia)
+        // 6. Zapisz rozliczenie
         $stmt = $mysqli->prepare('
             INSERT INTO rozliczenia
                 (dziecko_id, okres_od, okres_do, kieszonkowe_brutto,
@@ -310,12 +315,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
 
                 $success = 'Rozliczenie wykonane: ' . htmlspecialchars($imie_dziecka) .
-                           ' – <BR>okres ' . $okres_od . ' → ' . $okres_do .
-                           ' (' . $full_weeks . ' pełne tygodnie), <BR>kieszonkowe ' .
-                           number_format($brutto, 2) . ' zł, <BR>potrącenia ' .
-                           number_format($suma_potracen, 2) . ' zł, <BR>do wypłaty ' .
-                           number_format($netto, 2) . ' zł. <BR>data rozliczenia: ' .
-                           htmlspecialchars($settlement_date) . '<BR>';
+                           ' – <br>okres ' . $okres_od . ' → ' . $okres_do .
+                           ' (' . $full_weeks . ' pełne tygodnie), <br>kieszonkowe ' .
+                           number_format($brutto, 2) . ' zł, <br>potrącenia ' .
+                           number_format($suma_potracen, 2) . ' zł, <br>do wypłaty ' .
+                           number_format($netto, 2) . ' zł. <br>data rozliczenia: ' .
+                           htmlspecialchars($settlement_date) . '<br>';
             } else {
                 $errors[] = 'Błąd przy zapisie rozliczenia: ' . $stmt->error;
                 $stmt->close();
@@ -324,6 +329,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 ?>
+
 <!DOCTYPE html>
 <html lang="pl">
 <head>
